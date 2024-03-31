@@ -139,34 +139,35 @@ func (b *Bot) deregisterAllCommands() {
 }
 
 func (b *Bot) DefineModerationRules(rules ...ActionableRule) {
-	b.Discord.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		if m.Author.ID == s.State.User.ID {
-			return
-		}
+	b.Discord.AddHandler(
+		func(s *discordgo.Session, m *discordgo.MessageCreate) {
+			if m.Author.ID == s.State.User.ID {
+				return
+			}
 
-		// Get Channel Name from Message
-		channel, err := s.State.Channel(m.ChannelID)
-		if err != nil {
-			return
-		}
+			// Get Channel Name from Message
+			channel, err := s.State.Channel(m.ChannelID)
+			if err != nil {
+				return
+			}
 
-		// Test a regex match for the channel name against the rule
-		for _, rule := range rules {
-			if match, _ := regexp.Match(rule.Channel, []byte(channel.Name)); match {
+			// Test a regex match for the channel name against the rule
+			for _, rule := range rules {
+				if match, _ := regexp.Match(rule.Channel, []byte(channel.Name)); match {
 
-				// Test the rule
-				if err := rule.Rule.Test(m.Content); err != nil {
-					rule.Rule.Action(NewContext(
-						WithSession(s),
-						WithInteraction(nil), // No interaction for messages
-						WithMessage(m.Message),
-						WithLogger(b.lg.WithField("rule", rule.Rule.Name())),
-						WithDatabase(b.db),
-					), err)
+					// Test the rule
+					if err := rule.Rule.Test(m.Content); err != nil {
+						rule.Rule.Action(NewContext(
+							WithSession(s),
+							WithInteraction(nil), // No interaction for messages
+							WithMessage(m.Message),
+							WithLogger(b.lg.WithField("rule", rule.Rule.Name())),
+							WithDatabase(b.db),
+						), err)
+					}
 				}
 			}
-		}
-	})
+		})
 }
 
 func (b *Bot) Run() error {
