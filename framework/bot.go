@@ -7,6 +7,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 
+	"github.com/endeveit/enca"
+	"github.com/endeveit/guesslanguage"
+
 	log "github.com/sirupsen/logrus"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -27,6 +30,8 @@ func NewBot(token string, serverId string, db *sql.DB) (*Bot, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	discord.AddHandler(translate)
 
 	return &Bot{
 		Discord: discord,
@@ -181,4 +186,32 @@ func (b *Bot) Run() error {
 func (b *Bot) Close() error {
 	b.deregisterAllCommands()
 	return b.Discord.Close()
+}
+
+func translate(session *discordgo.Session, message *discordgo.MessageCreate) {
+	fmt.Println("translate() received message:\"" + message.Content + "\"")
+
+	// Check all non-bot messages
+	if message.Author.ID == session.State.User.ID {
+		return
+	}
+	// Check for non-english messages first to prevent unneccessary translations
+	lang, err := guesslanguage.Guess(message.Content)
+	if err != nil && lang != "en" {
+		// If non-english, translate
+		analyzer, err := enca.New(lang)
+
+		if err == nil {
+			encoding, err := analyzer.FromString(message.Content, enca.NAME_STYLE_HUMAN)
+			defer analyzer.Free()
+
+			// And with no errors, print out the translation
+			if err == nil {
+				out_message := "This message likely contained " + lang +
+					" text\nIts English meaning is: " + encoding
+				session.ChannelMessageSend(message.ChannelID, out_message)
+			}
+		}
+	}
+	return
 }
