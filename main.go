@@ -5,8 +5,10 @@ import (
 	"os/signal"
 
 	"github.com/aussiebroadwan/tony/commands"
+	"github.com/aussiebroadwan/tony/database"
 	"github.com/aussiebroadwan/tony/framework"
 	"github.com/aussiebroadwan/tony/moderation"
+	"github.com/aussiebroadwan/tony/pkg/reminders"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -39,6 +41,17 @@ func main() {
 		return
 	}
 
+	// Setup database
+	db := database.NewDatabase("tony.db")
+	defer db.Close()
+
+	database.SetupRemindersDB(db, bot.Discord)
+
+	// Setup reminders
+	go reminders.Run()
+	defer reminders.Stop()
+
+	// Register routes
 	bot.Register(
 		framework.NewRoute(bot, "ping", true, &commands.PingCommand{}),
 

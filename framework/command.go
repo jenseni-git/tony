@@ -50,7 +50,7 @@ func NewRoute(bot *Bot, name string, executionLogic bool, command AppCommand, su
 		Executes:     executionLogic,
 		Command:      command,
 		SubRoutes:    subroutes,
-		declaration:  command.Register(bot.discord),
+		declaration:  command.Register(bot.Discord),
 		commandRoute: make(map[string]Command),
 	}
 
@@ -86,7 +86,7 @@ func NewSubRoute(bot *Bot, name string, executionLogic bool, subcommand SubComma
 		SubCommand: subcommand,
 		SubRoutes:  subroutes,
 
-		declaration:  subcommand.Register(bot.discord),
+		declaration:  subcommand.Register(bot.Discord),
 		commandRoute: make(map[string]Command),
 	}
 

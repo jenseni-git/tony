@@ -10,7 +10,8 @@ import (
 )
 
 type Bot struct {
-	discord  *discordgo.Session
+	Discord *discordgo.Session
+
 	serverId string
 	Routes   []Route
 
@@ -24,7 +25,8 @@ func NewBot(token string, serverId string) (*Bot, error) {
 	}
 
 	return &Bot{
-		discord:  discord,
+		Discord: discord,
+
 		serverId: serverId,
 		Routes:   make([]Route, 0),
 		lg:       log.WithField("src", "bot"),
@@ -54,7 +56,7 @@ func keyBuilder(opt *discordgo.ApplicationCommandInteractionDataOption) string {
 func (b *Bot) registerAllCommandsAndRouting() {
 	// Register the route with Discord
 	for _, route := range b.Routes {
-		createdApp, err := b.discord.ApplicationCommandCreate(b.discord.State.User.ID, b.serverId, route.declaration)
+		createdApp, err := b.Discord.ApplicationCommandCreate(b.Discord.State.User.ID, b.serverId, route.declaration)
 		if err != nil {
 			b.lg.Errorf("Error creating command: %s", err)
 			continue
@@ -84,7 +86,7 @@ func (b *Bot) registerAllCommandsAndRouting() {
 	}
 
 	// Handle the route execution
-	b.discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	b.Discord.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		// TODO: Handle events such as Button interactions with Custom IDs etc.
 		if i.Type != discordgo.InteractionApplicationCommand {
 			return
@@ -122,7 +124,7 @@ func (b *Bot) deregisterAllCommands() {
 
 	// Delete the route from Discord
 	for _, route := range b.Routes {
-		b.discord.ApplicationCommandDelete(b.discord.State.User.ID, b.serverId, route.declaration.ID)
+		b.Discord.ApplicationCommandDelete(b.Discord.State.User.ID, b.serverId, route.declaration.ID)
 
 		for k := range route.commandRoute {
 			b.lg.Infof("Deregistered command route: %s", k)
@@ -131,7 +133,7 @@ func (b *Bot) deregisterAllCommands() {
 }
 
 func (b *Bot) DefineModerationRules(rules ...ActionableRule) {
-	b.discord.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+	b.Discord.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == s.State.User.ID {
 			return
 		}
@@ -162,10 +164,10 @@ func (b *Bot) DefineModerationRules(rules ...ActionableRule) {
 
 func (b *Bot) Run() error {
 	b.registerAllCommandsAndRouting()
-	return b.discord.Open()
+	return b.Discord.Open()
 }
 
 func (b *Bot) Close() error {
 	b.deregisterAllCommands()
-	return b.discord.Close()
+	return b.Discord.Close()
 }

@@ -2,9 +2,12 @@ package framework
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type ContextKey string
@@ -19,7 +22,7 @@ const (
 
 type ContextOpt func(*Context)
 
-func WithDatabase(db interface{}) ContextOpt {
+func WithDatabase(db *sql.DB) ContextOpt {
 	return func(c *Context) {
 		c.ctx = context.WithValue(c.ctx, CtxDatabase, db)
 	}
@@ -86,8 +89,8 @@ func (c *Context) Interaction() *discordgo.Interaction {
 	return c.ctx.Value("interaction").(*discordgo.Interaction)
 }
 
-func (c *Context) Database() interface{} {
-	return c.ctx.Value("db")
+func (c *Context) Database() *sql.DB {
+	return c.ctx.Value("db").(*sql.DB)
 }
 
 func (c *Context) Logger() *log.Entry {
