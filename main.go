@@ -4,8 +4,9 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/aussiebroadwan/tony/commands"
 	"github.com/aussiebroadwan/tony/framework"
-	"github.com/aussiebroadwan/tony/internal/moderation"
+	"github.com/aussiebroadwan/tony/moderation"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -37,6 +38,20 @@ func main() {
 		log.Fatalf("Error creating bot: %s", err)
 		return
 	}
+
+	bot.Register(
+		framework.NewRoute(bot, "ping", true, &commands.PingCommand{}),
+
+		framework.NewRoute(bot, "remind",
+			false, &commands.RemindCommand{},
+
+			// remind <subcommand>
+			framework.NewSubRoute(bot, "add", true, &commands.RemindAddSubCommand{}),
+			framework.NewSubRoute(bot, "del", true, &commands.RemindDeleteSubCommand{}),
+			framework.NewSubRoute(bot, "list", true, &commands.RemindListSubCommand{}),
+			framework.NewSubRoute(bot, "status", true, &commands.RemindStatusSubCommand{}),
+		),
+	)
 
 	bot.DefineModerationRules(
 		framework.Rule("tech-news", &moderation.ModerateNewsRule{}),

@@ -64,15 +64,15 @@ func (r *ModerateNewsRule) Test(content string) error {
 // Action takes action if the rule is violated
 func (r *ModerateNewsRule) Action(ctx *framework.Context, violation error) {
 	// Delete the message
-	ctx.Session.ChannelMessageDelete(ctx.Message.ChannelID, ctx.Message.ID)
+	ctx.Session().ChannelMessageDelete(ctx.Message().ChannelID, ctx.Message().ID)
 
 	// Get or create a DM channel with the user
-	dmChannel, err := ctx.Session.UserChannelCreate(ctx.Message.Author.ID)
+	dmChannel, err := ctx.Session().UserChannelCreate(ctx.Message().Author.ID)
 	if err != nil {
 		// Handle error, log it, or take appropriate action
 		return
 	}
 
 	// Send a direct message to the user
-	ctx.Session.ChannelMessageSend(dmChannel.ID, violation.Error())
+	ctx.Session().ChannelMessageSend(dmChannel.ID, violation.Error())
 }
