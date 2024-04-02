@@ -17,7 +17,7 @@ const (
 	CtxMessage     ContextKey = "message"
 	CtxSession     ContextKey = "session"
 	CtxDatabase    ContextKey = "db"
-	CtxLogger      ContextKey = "db"
+	CtxLogger      ContextKey = "logger"
 )
 
 type ContextOpt func(*Context)
@@ -78,21 +78,21 @@ func NewContext(opts ...ContextOpt) *Context {
 }
 
 func (c *Context) Session() *discordgo.Session {
-	return c.ctx.Value("session").(*discordgo.Session)
+	return c.ctx.Value(CtxSession).(*discordgo.Session)
 }
 
 func (c *Context) Message() *discordgo.Message {
-	return c.ctx.Value("message").(*discordgo.Message)
+	return c.ctx.Value(CtxMessage).(*discordgo.Message)
 }
 
 func (c *Context) Interaction() *discordgo.Interaction {
-	return c.ctx.Value("interaction").(*discordgo.Interaction)
+	return c.ctx.Value(CtxInteraction).(*discordgo.Interaction)
 }
 
 func (c *Context) Database() *sql.DB {
-	return c.ctx.Value("db").(*sql.DB)
+	return c.ctx.Value(CtxDatabase).(*sql.DB)
 }
 
 func (c *Context) Logger() *log.Entry {
-	return c.ctx.Value("logger").(*log.Entry)
+	return c.ctx.Value(CtxLogger).(*log.Entry)
 }

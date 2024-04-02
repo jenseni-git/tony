@@ -35,7 +35,14 @@ func (c *RemindCommand) OnEvent(ctx *framework.Context, eventType framework.Even
 	/* NOP */
 }
 
-// remind add <time> <message>
+// This is the subcommand for adding a reminder to the bot. The user can specify
+// a time and message for the reminder and the bot will remind the user at the
+// specified time.
+//
+//	/remind add <time> <message>
+//
+// An error will be returned if the time is not in the correct format of
+// "2022-01-01 15:04:05".
 type RemindAddSubCommand struct {
 	framework.SubCommand
 }
@@ -74,7 +81,7 @@ func (c *RemindAddSubCommand) Execute(ctx *framework.Context) {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "Error: Time is required",
+				Content: "**Error:** Time is required",
 			},
 		})
 		return
@@ -86,29 +93,35 @@ func (c *RemindAddSubCommand) Execute(ctx *framework.Context) {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "Error: Message is required",
+				Content: "**Error:** Message is required",
 			},
 		})
 		return
 	}
 
 	// Check if the time is valid
-	triggerTime, err := time.Parse(time.DateTime, triggerTimeStr.StringValue())
+	triggerTime, err := time.ParseInLocation(time.DateTime, triggerTimeStr.StringValue(), time.Local)
 	if err != nil {
 		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "Error: Invalid time format eg. 2022-01-01 15:04:05",
+				Content: "**Error:** Invalid time format eg. 2022-01-01 15:04:05",
 			},
 		})
 		return
 	}
 
+	// Get the user who created the reminder
+	user := interaction.User
+	if user == nil {
+		user = interaction.Member.User
+	}
+
 	// Add the reminder
-	err = database.AddReminder(
+	id, err := database.AddReminder(
 		db,
-		interaction.User.Username,
+		user.Mention(),
 		triggerTime,
 		ctx.Session(),
 		interaction.ChannelID,
@@ -120,18 +133,34 @@ func (c *RemindAddSubCommand) Execute(ctx *framework.Context) {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "Error: Failed to add reminder",
+				Content: "**Error:** Failed to add reminder",
 			},
 		})
 		return
 	}
+
+	// Respond with the reminder ID
+	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: fmt.Sprintf("Reminder added `[%d]`", id),
+		},
+	})
 }
 
 func (com *RemindAddSubCommand) OnEvent(ctx *framework.Context, eventType framework.EventType) {
 	/* NOP */
 }
 
-// remind del <id>
+// This is the subcommand for deleting a reminder from the bot. The user can
+// specify the ID of the reminder to delete and the bot will remove the reminder
+// from the list of reminders.
+//
+//	/remind del <id>
+//
+// If the reminder is not found, an error will be returned. If the user is not
+// the creator of the reminder, an error will be returned.
 type RemindDeleteSubCommand struct {
 	framework.SubCommand
 }
@@ -143,7 +172,7 @@ func (c *RemindDeleteSubCommand) Register(s *discordgo.Session) *discordgo.Appli
 		Description: "Delete a reminder",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
+				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "id",
 				Description: "The ID of the reminder to delete",
 				Required:    true,
@@ -164,30 +193,50 @@ func (c *RemindDeleteSubCommand) Execute(ctx *framework.Context) {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "Error: id is required",
+				Content: "**Error:** id is required",
 			},
 		})
 		return
 	}
 
+	user := interaction.User
+	if user == nil {
+		user = interaction.Member.User
+	}
+
 	// Delete the reminder
-	err = database.DeleteReminder(db, id.IntValue())
+	err = database.DeleteReminder(db, id.IntValue(), user.Mention())
 	if err != nil {
 		ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: fmt.Sprintf("Error: reminder %d not found", id.IntValue()),
+				Content: fmt.Sprintf("**Error:** reminder `[%d]` not found", id.IntValue()),
 			},
 		})
 	}
+
+	// Respond that the reminder was deleted
+	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: fmt.Sprintf("Reminder `[%d]` deleted", id.IntValue()),
+		},
+	})
 }
 
 func (c *RemindDeleteSubCommand) OnEvent(ctx *framework.Context, eventType framework.EventType) {
 	/* NOP */
 }
 
-// remind list
+// This is the subcommand for listing all reminders for the user. The user can
+// view all reminders that they have created and are able to delete or check
+// the status of.
+//
+//	/remind list
+//
+// If the user has no reminders, the bot will respond with "No reminders found".
 type RemindListSubCommand struct {
 	framework.SubCommand
 }
@@ -206,10 +255,16 @@ func (c *RemindListSubCommand) Execute(ctx *framework.Context) {
 	// Get all reminders
 	reminderList := reminders.List()
 
+	// Get the user who created the reminder
+	user := interaction.User
+	if user == nil {
+		user = interaction.Member.User
+	}
+
 	// Fetch current user's reminders
 	var userReminders = make([]reminders.Reminder, 0)
 	for _, reminder := range reminderList {
-		if reminder.CreatedBy == interaction.User.Username {
+		if reminder.CreatedBy == user.Mention() {
 			userReminders = append(userReminders, reminder)
 		}
 	}
@@ -228,7 +283,7 @@ func (c *RemindListSubCommand) Execute(ctx *framework.Context) {
 
 	var reminderListStr string = "Reminders:\n\n```\n"
 	for _, reminder := range userReminders {
-		reminderListStr += fmt.Sprintf("ID: %d, Time: %s\n", reminder.ID, reminder.TriggerTime.String())
+		reminderListStr += fmt.Sprintf("[%d]: %s\n", reminder.ID, reminder.TriggerTime.String())
 	}
 	reminderListStr += "```"
 
@@ -245,7 +300,14 @@ func (c *RemindListSubCommand) OnEvent(ctx *framework.Context, eventType framewo
 	/* NOP */
 }
 
-// remind status <id>
+// This is the subcommand for checking the status of a reminder. The user can
+// specify the ID of the reminder to check and the bot will respond with the
+// time left until the reminder is triggered. It will only respond if the user
+// owns the reminder.
+//
+//	/remind status <id>
+//
+// If the reminder is not found, an error will be returned.
 type RemindStatusSubCommand struct {
 	framework.SubCommand
 }
@@ -257,7 +319,7 @@ func (c *RemindStatusSubCommand) Register(s *discordgo.Session) *discordgo.Appli
 		Description: "Get the status of a reminder",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
+				Type:        discordgo.ApplicationCommandOptionInteger,
 				Name:        "id",
 				Description: "The ID of the reminder to check",
 				Required:    true,
@@ -277,7 +339,7 @@ func (c *RemindStatusSubCommand) Execute(ctx *framework.Context) {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "Error: id is required",
+				Content: "**Error:** id is required",
 			},
 		})
 		return
@@ -290,7 +352,7 @@ func (c *RemindStatusSubCommand) Execute(ctx *framework.Context) {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: fmt.Sprintf("Error: reminder %d not found", id.IntValue()),
+				Content: fmt.Sprintf("**Error:** reminder `[%d]` not found", id.IntValue()),
 			},
 		})
 		return
@@ -301,7 +363,7 @@ func (c *RemindStatusSubCommand) Execute(ctx *framework.Context) {
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: fmt.Sprintf("Time left: %s", timeLeft.String()),
+			Content: fmt.Sprintf("Time left for `[%d]`: `%s`", id.IntValue(), timeLeft.String()),
 		},
 	})
 }

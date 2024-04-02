@@ -9,6 +9,7 @@ type Reminder struct {
 	ID int64
 
 	CreatedBy string
+	Triggered bool
 
 	TriggerTime time.Time
 	Action      func(id int64)
@@ -28,7 +29,7 @@ func Load(store map[int64]Reminder) {
 // Run periodically checks for due reminders and executes their actions
 // This function should be run in a goroutine
 func Run() {
-	ticker := time.NewTicker(1 * time.Minute) // Adjust the interval as needed
+	ticker := time.NewTicker(10 * time.Second) // Adjust the interval as needed
 	defer ticker.Stop()
 
 	// Run the reminder loop
@@ -40,11 +41,16 @@ func Run() {
 		now := time.Now()
 		for _, r := range reminderStore {
 			if r.TriggerTime.Before(now) {
-				r.Action(r.ID)   // Execute the reminder action
-				_ = Delete(r.ID) // Remove the reminder
+				r.Action(r.ID)                // Execute the reminder action
+				_ = Delete(r.ID, r.CreatedBy) // Remove the reminder
 			}
 		}
 	}
+
+	// Clear the reminder store
+	reminderStore = make(map[int64]Reminder)
+	reminderStoreKey = 0
+	reminderStop = false
 }
 
 func Stop() {
@@ -58,6 +64,7 @@ func Add(triggerTime time.Time, createdBy string, action func(id int64)) int64 {
 		ID:          id,
 		CreatedBy:   createdBy,
 		TriggerTime: triggerTime,
+		Triggered:   false,
 		Action:      action,
 	}
 	reminderStoreKey++
@@ -66,10 +73,15 @@ func Add(triggerTime time.Time, createdBy string, action func(id int64)) int64 {
 }
 
 // Delete removes a reminder by its ID
-func Delete(id int64) error {
+func Delete(id int64, user string) error {
 	if _, ok := reminderStore[id]; !ok {
 		return fmt.Errorf("reminder with ID %d not found", id)
 	}
+
+	if reminderStore[id].CreatedBy != user {
+		return fmt.Errorf("reminder with ID %d does not belong to user %s", id, user)
+	}
+
 	delete(reminderStore, id)
 	return nil
 }
@@ -79,7 +91,7 @@ func List() []Reminder {
 	var upcoming []Reminder
 	now := time.Now()
 	for _, r := range reminderStore {
-		if r.TriggerTime.After(now) {
+		if r.TriggerTime.After(now) && !r.Triggered {
 			upcoming = append(upcoming, r)
 		}
 	}

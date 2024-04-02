@@ -1,12 +1,15 @@
 package framework
 
 import (
+	"database/sql"
 	"fmt"
 	"regexp"
 
 	"github.com/bwmarrin/discordgo"
 
 	log "github.com/sirupsen/logrus"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Bot struct {
@@ -16,9 +19,10 @@ type Bot struct {
 	Routes   []Route
 
 	lg *log.Entry
+	db *sql.DB
 }
 
-func NewBot(token string, serverId string) (*Bot, error) {
+func NewBot(token string, serverId string, db *sql.DB) (*Bot, error) {
 	discord, err := discordgo.New("Bot " + token)
 	if err != nil {
 		return nil, err
@@ -30,6 +34,7 @@ func NewBot(token string, serverId string) (*Bot, error) {
 		serverId: serverId,
 		Routes:   make([]Route, 0),
 		lg:       log.WithField("src", "bot"),
+		db:       db,
 	}, nil
 }
 
@@ -104,6 +109,7 @@ func (b *Bot) registerAllCommandsAndRouting() {
 					WithInteraction(i.Interaction),
 					WithMessage(i.Interaction.Message),
 					WithLogger(b.lg.WithField("route", routeKey)),
+					WithDatabase(b.db),
 				))
 				return
 			}
@@ -155,6 +161,7 @@ func (b *Bot) DefineModerationRules(rules ...ActionableRule) {
 						WithInteraction(nil), // No interaction for messages
 						WithMessage(m.Message),
 						WithLogger(b.lg.WithField("rule", rule.Rule.Name())),
+						WithDatabase(b.db),
 					), err)
 				}
 			}
@@ -163,8 +170,11 @@ func (b *Bot) DefineModerationRules(rules ...ActionableRule) {
 }
 
 func (b *Bot) Run() error {
+	if err := b.Discord.Open(); err != nil {
+		return err
+	}
 	b.registerAllCommandsAndRouting()
-	return b.Discord.Open()
+	return nil
 }
 
 func (b *Bot) Close() error {

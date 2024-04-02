@@ -10,6 +10,8 @@ import (
 	"github.com/aussiebroadwan/tony/moderation"
 	"github.com/aussiebroadwan/tony/pkg/reminders"
 
+	"github.com/joho/godotenv"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -26,26 +28,29 @@ func init() {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 
+	godotenv.Load()
+
 	// Check if token is provided
 	if token == "" {
 		log.Fatal("No token provided. Please set DISCORD_TOKEN environment variable.")
 		return
 	}
+
+	// Print version
+	log.Infof("Tony v%s", VERSION)
 }
 
 func main() {
-	// Create a new bot
-	bot, err := framework.NewBot(token, serverId)
-	if err != nil {
-		log.Fatalf("Error creating bot: %s", err)
-		return
-	}
-
 	// Setup database
 	db := database.NewDatabase("tony.db")
 	defer db.Close()
 
-	database.SetupRemindersDB(db, bot.Discord)
+	// Create a new bot
+	bot, err := framework.NewBot(token, serverId, db)
+	if err != nil {
+		log.Fatalf("Error creating bot: %s", err)
+		return
+	}
 
 	// Setup reminders
 	go reminders.Run()
@@ -77,6 +82,9 @@ func main() {
 		return
 	}
 	defer bot.Close()
+
+	// Setup reminders database, requires a discord session
+	database.SetupRemindersDB(db, bot.Discord)
 
 	waitForInterrupt()
 }

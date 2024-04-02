@@ -20,17 +20,17 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 		created_by TEXT NOT NULL,
 		channel_id TEXT NOT NULL,
 		trigger_time TEXT NOT NULL,
-		message TEXT NOT NULL
+		message TEXT NOT NULL,
 		reminded BOOLEAN DEFAULT FALSE
 	)`)
 	if err != nil {
-		panic(err)
+		log.WithField("src", "database").WithError(err).Fatal("Failed to create reminders table")
 	}
 
 	// Load all reminders from the database
 	rows, err := db.Query(`SELECT id, created_by, channel_id, trigger_time, message, reminded FROM reminders`)
 	if err != nil {
-		panic(err)
+		log.WithField("src", "database").WithError(err).Fatal("Failed to load reminders from database")
 	}
 
 	var loadReminders = make(map[int64]reminders.Reminder)
@@ -48,7 +48,7 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 		}
 
 		// Parse the trigger time
-		t, err := time.Parse(time.DateTime, triggerTime)
+		t, err := time.ParseInLocation(time.DateTime, triggerTime, time.Local)
 		if err != nil {
 			log.WithField("src", "database").WithError(err).Error("Failed to parse trigger time")
 			continue
@@ -61,7 +61,8 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 				CreatedBy:   createdBy,
 				TriggerTime: t,
 
-				Action: func(id int64) { /* Do nothing */ },
+				Triggered: true,
+				Action:    func(id int64) { /* Do nothing */ },
 			}
 			continue
 		}
@@ -72,6 +73,7 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 			CreatedBy:   createdBy,
 			TriggerTime: t,
 
+			Triggered: false,
 			Action: func(id int64) {
 				// Send the reminder message
 				session.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", createdBy, message))
@@ -89,7 +91,7 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 	reminders.Load(loadReminders)
 }
 
-func AddReminder(db *sql.DB, createdBy string, triggerTime time.Time, session *discordgo.Session, channelId string, message string) error {
+func AddReminder(db *sql.DB, createdBy string, triggerTime time.Time, session *discordgo.Session, channelId string, message string) (int64, error) {
 	id := reminders.Add(triggerTime, createdBy, func(id int64) {
 		// Send the reminder message
 		session.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", createdBy, message))
@@ -101,12 +103,13 @@ func AddReminder(db *sql.DB, createdBy string, triggerTime time.Time, session *d
 		}
 	})
 
-	_, err := db.Exec(`INSERT INTO reminders (id, created_by, trigger_time, message) VALUES (?, ?, ?, ?)`, id, createdBy, triggerTime.Format(time.DateTime), message)
-	return err
+	query := fmt.Sprintf(`INSERT INTO reminders (id, created_by, channel_id, trigger_time, message) VALUES (%d, "%s", "%s", "%s", "%s")`, id, createdBy, channelId, triggerTime.Format(time.DateTime), message)
+	_, err := db.Exec(query)
+	return id, err
 }
 
-func DeleteReminder(db *sql.DB, id int64) error {
-	err := reminders.Delete(id)
+func DeleteReminder(db *sql.DB, id int64, user string) error {
+	err := reminders.Delete(id, user)
 	if err != nil {
 		return err
 	}
