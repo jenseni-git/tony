@@ -74,6 +74,7 @@ func main() {
 	bot.DefineModerationRules(
 		framework.Rule("tech-news", &moderation.ModerateNewsRule{}),
 		framework.Rule("rss", &moderation.ModerateRSSRule{}),
+		framework.Rule(".*", &moderation.TranslateNonEnglish{}),
 	)
 
 	// Run the bot

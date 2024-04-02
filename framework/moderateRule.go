@@ -5,7 +5,7 @@ type ModerateRule interface {
 	Name() string
 
 	// Test the rule against content
-	Test(content string) error
+	Test(ctx *Context, content string) error
 
 	// What action should be taken if the rule is violated
 	Action(ctx *Context, violation error)

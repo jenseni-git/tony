@@ -43,7 +43,7 @@ func (r *ModerateRSSRule) Name() string {
 }
 
 // Test tests the rule against the content
-func (r *ModerateRSSRule) Test(content string) error {
+func (r *ModerateRSSRule) Test(ctx *framework.Context, content string) error {
 	// Check if the title is in bold and ends with a colon and a link
 	blockRegex := regexp.MustCompile(`\*\*.*\*\*: http(s)?:\/\/.*\n\n.*`)
 	if !blockRegex.MatchString(content) {

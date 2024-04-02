@@ -43,7 +43,7 @@ func (r *ModerateNewsRule) Name() string {
 }
 
 // Test tests the rule against the content
-func (r *ModerateNewsRule) Test(content string) error {
+func (r *ModerateNewsRule) Test(ctx *framework.Context, content string) error {
 	// Split the message into lines
 	lines := strings.Split(content, "\n")
 
