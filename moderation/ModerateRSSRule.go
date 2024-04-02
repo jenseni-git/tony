@@ -3,7 +3,6 @@ package moderation
 import (
 	"errors"
 	"regexp"
-	"strings"
 
 	"github.com/aussiebroadwan/tony/framework"
 )
@@ -35,8 +34,8 @@ type ModerateRSSRule struct {
 }
 
 var (
-	ErrInvalidRSSPostFormat = errors.New(`rss posts must be in the following format:\n\n**<title>**: <link>\n\n{description}`)
-	ErrRSSTitleFormatError  = errors.New(`the title must be in bold and end with a colon then a link`)
+	ErrInvalidRSSPostFormat = errors.New("rss posts must be in the following format:\n```\n**<title>**: <link>\n\n{description}```")
+	ErrRSSTitleFormatError  = errors.New("the title must be in bold and end with a colon then a link")
 )
 
 func (r *ModerateRSSRule) Name() string {
@@ -45,18 +44,10 @@ func (r *ModerateRSSRule) Name() string {
 
 // Test tests the rule against the content
 func (r *ModerateRSSRule) Test(content string) error {
-	// Split the message into lines
-	lines := strings.Split(content, "\n")
-
-	// Check if the message is in the correct format
-	if len(lines) != 2 {
+	// Check if the title is in bold and ends with a colon and a link
+	blockRegex := regexp.MustCompile(`\*\*.*\*\*: http(s)?:\/\/.*\n\n.*`)
+	if !blockRegex.MatchString(content) {
 		return ErrInvalidRSSPostFormat
-	}
-
-	// Check if the title is in the correct format
-	mainLineRegex := regexp.MustCompile(`\*\*.*\*\*: http(s)?://.*`)
-	if !mainLineRegex.MatchString(lines[0]) {
-		return ErrRSSTitleFormatError
 	}
 
 	return nil

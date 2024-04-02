@@ -33,7 +33,7 @@ type ModerateNewsRule struct {
 }
 
 var (
-	ErrInvalidNewsPostFormat = errors.New(`news posts must be in the following format:\n\n# <title>\n{description}\n<link>`)
+	ErrInvalidNewsPostFormat = errors.New("news posts must be in the following format:\n```\n# <title>\n{description}\n<link>```")
 	ErrTitleFormatError      = errors.New(`the title must start with '# '`)
 	ErrLinkFormatError       = errors.New(`the link must be a web link (http or https)`)
 )

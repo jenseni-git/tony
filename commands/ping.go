@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/aussiebroadwan/tony/framework"
 	"github.com/bwmarrin/discordgo"
 )
@@ -26,10 +28,17 @@ func (pc *PingCommand) Register(s *discordgo.Session) *discordgo.ApplicationComm
 // invokes this command, Discord triggers this method, allowing the bot to
 // respond appropriately.
 func (pc *PingCommand) Execute(ctx *framework.Context) {
+	interaction := ctx.Interaction()
+
+	user := interaction.Member.User
+	if user == nil {
+		user = interaction.User
+	}
+
 	ctx.Session().InteractionRespond(ctx.Interaction(), &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Pong!",
+			Content: fmt.Sprintf("Pong %s!", user.Mention()),
 		},
 	})
 }
