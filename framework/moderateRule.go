@@ -1,6 +1,9 @@
 package framework
 
 type ModerateRule interface {
+	// Name of the rule
+	Name() string
+
 	// Test the rule against content
 	Test(content string) error
 

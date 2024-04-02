@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bwmarrin/discordgo"
+	log "github.com/sirupsen/logrus"
 )
 
 type ContextKey string
@@ -13,6 +14,7 @@ const (
 	CtxMessage     ContextKey = "message"
 	CtxSession     ContextKey = "session"
 	CtxDatabase    ContextKey = "db"
+	CtxLogger      ContextKey = "db"
 )
 
 type ContextOpt func(*Context)
@@ -38,6 +40,12 @@ func WithSession(s *discordgo.Session) ContextOpt {
 func WithMessage(m *discordgo.Message) ContextOpt {
 	return func(c *Context) {
 		c.ctx = context.WithValue(c.ctx, CtxMessage, m)
+	}
+}
+
+func WithLogger(l *log.Entry) ContextOpt {
+	return func(c *Context) {
+		c.ctx = context.WithValue(c.ctx, CtxLogger, l)
 	}
 }
 
@@ -76,4 +84,12 @@ func (c *Context) Message() *discordgo.Message {
 
 func (c *Context) Interaction() *discordgo.Interaction {
 	return c.ctx.Value("interaction").(*discordgo.Interaction)
+}
+
+func (c *Context) Database() interface{} {
+	return c.ctx.Value("db")
+}
+
+func (c *Context) Logger() *log.Entry {
+	return c.ctx.Value("logger").(*log.Entry)
 }

@@ -39,6 +39,10 @@ var (
 	ErrRSSTitleFormatError  = errors.New(`the title must be in bold and end with a colon then a link`)
 )
 
+func (r *ModerateRSSRule) Name() string {
+	return "rss"
+}
+
 // Test tests the rule against the content
 func (r *ModerateRSSRule) Test(content string) error {
 	// Split the message into lines

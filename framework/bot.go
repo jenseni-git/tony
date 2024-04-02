@@ -54,13 +54,19 @@ func keyBuilder(opt *discordgo.ApplicationCommandInteractionDataOption) string {
 func (b *Bot) registerAllCommandsAndRouting() {
 	// Register the route with Discord
 	for _, route := range b.Routes {
-		b.discord.ApplicationCommandCreate(b.discord.State.User.ID, b.serverId, route.declaration)
+		createdApp, err := b.discord.ApplicationCommandCreate(b.discord.State.User.ID, b.serverId, route.declaration)
+		if err != nil {
+			b.lg.Errorf("Error creating command: %s", err)
+			continue
+		}
+		route.declaration = createdApp
 
 		for k := range route.commandRoute {
 			b.lg.Infof("Registered command route: %s", k)
 		}
 	}
 
+	// Define a function to build the route key
 	appKeyBuilder := func(i *discordgo.InteractionCreate) string {
 		routeKey := i.ApplicationCommandData().Name
 
@@ -95,6 +101,7 @@ func (b *Bot) registerAllCommandsAndRouting() {
 					WithSession(s),
 					WithInteraction(i.Interaction),
 					WithMessage(i.Interaction.Message),
+					WithLogger(b.lg.WithField("route", routeKey)),
 				))
 				return
 			}
@@ -109,6 +116,18 @@ func (b *Bot) registerAllCommandsAndRouting() {
 			},
 		})
 	})
+}
+
+func (b *Bot) deregisterAllCommands() {
+
+	// Delete the route from Discord
+	for _, route := range b.Routes {
+		b.discord.ApplicationCommandDelete(b.discord.State.User.ID, b.serverId, route.declaration.ID)
+
+		for k := range route.commandRoute {
+			b.lg.Infof("Deregistered command route: %s", k)
+		}
+	}
 }
 
 func (b *Bot) DefineModerationRules(rules ...ActionableRule) {
@@ -133,6 +152,7 @@ func (b *Bot) DefineModerationRules(rules ...ActionableRule) {
 						WithSession(s),
 						WithInteraction(nil), // No interaction for messages
 						WithMessage(m.Message),
+						WithLogger(b.lg.WithField("rule", rule.Rule.Name())),
 					), err)
 				}
 			}
@@ -146,5 +166,6 @@ func (b *Bot) Run() error {
 }
 
 func (b *Bot) Close() error {
+	b.deregisterAllCommands()
 	return b.discord.Close()
 }

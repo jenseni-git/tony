@@ -38,6 +38,10 @@ var (
 	ErrLinkFormatError       = errors.New(`the link must be a web link (http or https)`)
 )
 
+func (r *ModerateNewsRule) Name() string {
+	return "tech-news"
+}
+
 // Test tests the rule against the content
 func (r *ModerateNewsRule) Test(content string) error {
 	// Split the message into lines
