@@ -109,3 +109,12 @@ func NewSubRoute(bot *Bot, name string, executionLogic bool, subcommand SubComma
 
 	return r
 }
+
+func GetOption(opts []*discordgo.ApplicationCommandInteractionDataOption, key string) (*discordgo.ApplicationCommandInteractionDataOption, error) {
+	for _, opt := range opts {
+		if opt.Name == key {
+			return opt, nil
+		}
+	}
+	return nil, fmt.Errorf("option %s not found", key)
+}

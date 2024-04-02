@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/aussiebroadwan/tony/pkg/reminders"
@@ -47,7 +48,7 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 		}
 
 		// Parse the trigger time
-		t, err := time.Parse(time.RFC3339, triggerTime)
+		t, err := time.Parse(time.DateTime, triggerTime)
 		if err != nil {
 			log.WithField("src", "database").WithError(err).Error("Failed to parse trigger time")
 			continue
@@ -73,7 +74,7 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 
 			Action: func(id int64) {
 				// Send the reminder message
-				session.ChannelMessageSend(channelId, message)
+				session.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", createdBy, message))
 
 				// Set the reminder as reminded
 				_, err := db.Exec(`UPDATE reminders SET reminded = TRUE WHERE id = ?`, id)
@@ -91,7 +92,7 @@ func SetupRemindersDB(db *sql.DB, session *discordgo.Session) {
 func AddReminder(db *sql.DB, createdBy string, triggerTime time.Time, session *discordgo.Session, channelId string, message string) error {
 	id := reminders.Add(triggerTime, createdBy, func(id int64) {
 		// Send the reminder message
-		session.ChannelMessageSend(channelId, message)
+		session.ChannelMessageSend(channelId, fmt.Sprintf("%s %s", createdBy, message))
 
 		// Set the reminder as reminded
 		_, err := db.Exec(`UPDATE reminders SET reminded = TRUE WHERE id = ?`, id)
@@ -100,7 +101,7 @@ func AddReminder(db *sql.DB, createdBy string, triggerTime time.Time, session *d
 		}
 	})
 
-	_, err := db.Exec(`INSERT INTO reminders (id, created_by, trigger_time, message) VALUES (?, ?, ?, ?)`, id, createdBy, triggerTime.Format(time.RFC3339), message)
+	_, err := db.Exec(`INSERT INTO reminders (id, created_by, trigger_time, message) VALUES (?, ?, ?, ?)`, id, createdBy, triggerTime.Format(time.DateTime), message)
 	return err
 }
 
